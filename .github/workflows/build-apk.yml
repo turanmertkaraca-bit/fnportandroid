@@ -44,7 +44,7 @@ jobs:
           mkdir -p "$SDK_ROOT/cmdline-tools"
 
           cmdline_version="11076708"
-          curl -fsSL -o /tmp/cmdline-tools.zip \
+          curl -fsSL --retry 5 --retry-all-errors -o /tmp/cmdline-tools.zip \
             "https://dl.google.com/android/repository/commandlinetools-linux-${cmdline_version}_latest.zip"
           unzip -q /tmp/cmdline-tools.zip -d "$SDK_ROOT/cmdline-tools"
           mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
@@ -58,12 +58,15 @@ jobs:
 
       - name: Install SDK packages
         run: |
+          set -euo pipefail
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;35.0.0" \
             "ndk;27.0.12077973" \
             "cmake;3.22.1"
+          echo "--- installed ---" >> "$GITHUB_STEP_SUMMARY"
+          sdkmanager --list_installed >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -82,13 +85,22 @@ jobs:
 
       - name: Apply FrickBears 3 port patches
         run: |
-          python3 port/scripts/apply_port.py vendor/Butterscotch
-          python3 port/scripts/apply_game_screen.py vendor/Butterscotch
+          set -euo pipefail
+          python3 port/scripts/apply_port.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 port/scripts/apply_game_screen.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Build debug + release APK
         working-directory: vendor/Butterscotch/src/android/frontend
         run: |
-          ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
+          set -euo pipefail
+          ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace \
+            2>&1 | tee /tmp/gradle.log
+          # Surface the interesting bits in the run summary so a failure is
+          # diagnosable without digging through the full log.
+          {
+            echo "### Gradle"
+            grep -E "^e: |error:|FAILURE:|What went wrong|Caused by:|Could not|A problem occurred" /tmp/gradle.log || true
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Collect APKs
         run: |
@@ -96,6 +108,7 @@ jobs:
           find vendor/Butterscotch/src/android/frontend/app/build/outputs/apk \
             -name "*.apk" -exec cp {} dist/ \;
           ls -lh dist/
+          ls -lh dist/ >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
