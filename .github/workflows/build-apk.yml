@@ -244,6 +244,7 @@ jobs:
         # This runs in its own clone so it cannot disturb the working tree
         # (in particular the dist/ folder with the built APKs).
         if: always()
+        continue-on-error: true
         env:
           LOGS_BRANCH: build-logs
         run: |
@@ -264,6 +265,7 @@ jobs:
           git push --force origin "HEAD:refs/heads/$LOGS_BRANCH"
 
       - name: Upload APK artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frickbears3-android-apk
