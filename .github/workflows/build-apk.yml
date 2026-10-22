@@ -142,15 +142,25 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/27.0.12077973
         run: |
-          set -euo pipefail
+          set -uo pipefail
           ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace \
             2>&1 | tee /tmp/gradle.log
-          # Surface the interesting bits in the run summary so a failure is
-          # diagnosable without digging through the full log.
+          status=${PIPESTATUS[0]}
+
+          # Surface the interesting bits both in the log and as workflow
+          # annotations, so a failure is diagnosable without digging through
+          # the full log or signing in to GitHub.
           {
             echo "### Gradle"
-            grep -E "^e: |error:|FAILURE:|What went wrong|Caused by:|Could not|A problem occurred" /tmp/gradle.log || true
-          } >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^e: |error:|FAILURE:|What went wrong|Caused by:|Could not|A problem occurred|BUILD FAILED" /tmp/gradle.log || true
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=Gradle build failed::See the step summary and the build-logs artifact for the full output."
+            echo "----- last 120 lines -----"
+            tail -120 /tmp/gradle.log
+            exit "$status"
+          fi
 
       - name: Collect APKs
         run: |
@@ -187,19 +197,14 @@ jobs:
           LOGS_BRANCH: build-logs
         run: |
           set -uo pipefail
-          rm -rf logs-repo
-          # Start from the current main so the branch has a sane base, then
-          # keep only the logs.
-          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-repo
-          cd logs-repo
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$LOGS_BRANCH"
           git rm -r --cached . -q || true
           find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
           mkdir -p build-logs
-          cp "$GITHUB_WORKSPACE/dist-logs/"*.log build-logs/ 2>/dev/null || \
-            echo "no logs captured" > build-logs/gradle.log
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          cp dist-logs/*.log build-logs/ 2>/dev/null || echo "no logs captured" > build-logs/gradle.log
           git add -A
           git commit -m "build logs: ${GITHUB_RUN_ID}"
           git push --force origin "HEAD:refs/heads/$LOGS_BRANCH"
