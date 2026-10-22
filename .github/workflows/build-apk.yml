@@ -114,7 +114,17 @@ jobs:
       - name: Install the remaining SDK packages
         run: |
           set -euo pipefail
-          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" 2>&1 | tee /tmp/sdkmanager.log
+          # These are the exact versions AGP 9.2.1 asks for: the app targets
+          # compileSdk 36 with minorApiLevel 1 (android-36.1) and build-tools
+          # 36.0.0. Installing anything else makes AGP try to fetch them at
+          # build time, where the licence prompt fails the build.
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "platforms;android-36.1" \
+            "build-tools;35.0.0" \
+            "build-tools;36.0.0" \
+            "cmake;3.22.1" 2>&1 | tee /tmp/sdkmanager.log
           {
             echo "### Installed SDK packages"
             sdkmanager --list_installed
@@ -147,6 +157,10 @@ jobs:
           ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/28.2.13676358
         run: |
           set -uo pipefail
+          # Re-accept every licence: if AGP decides it needs one more SDK
+          # package it will try to install it itself, and that only works
+          # when the licence for it has already been accepted.
+          yes | sdkmanager --licenses > /dev/null || true
           ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace \
             2>&1 | tee /tmp/gradle.log
           status=${PIPESTATUS[0]}
