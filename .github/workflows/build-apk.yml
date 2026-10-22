@@ -140,7 +140,7 @@ jobs:
       - name: Build debug + release APK
         working-directory: vendor/Butterscotch/src/android/frontend
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/27.0.12077973
         run: |
           set -euo pipefail
           ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace \
@@ -159,6 +159,23 @@ jobs:
             -name "*.apk" -exec cp {} dist/ \;
           ls -lh dist/
           ls -lh dist/ >> "$GITHUB_STEP_SUMMARY"
+
+      # Always ship the logs, even on failure, so a broken build can be
+      # diagnosed from the artifacts without re-running it.
+      - name: Upload build logs
+        if: always()
+        run: |
+          mkdir -p dist-logs
+          cp /tmp/gradle.log dist-logs/gradle.log 2>/dev/null || echo "no gradle log captured" > dist-logs/gradle.log
+          ls -la dist-logs
+
+      - name: Upload build logs artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: dist-logs/
+          if-no-files-found: ignore
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
