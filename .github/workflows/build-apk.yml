@@ -145,11 +145,47 @@ jobs:
           repository: ButterscotchRunner/Butterscotch
           path: vendor/Butterscotch
 
+      # The game data is not committed to this repository - it belongs to the
+      # original author. It is fetched here and bundled into the APK so the
+      # app is self-contained: it opens straight into the game with nothing
+      # left for the player to import.
+      - name: Cache the game data
+        id: game-cache
+        uses: actions/cache@v4
+        with:
+          path: vendor/frickbears3-game
+          key: fb3-game-v1-${{ hashFiles('port/tools/fetch_game.py') }}
+
+      - name: Fetch the game data
+        if: steps.game-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          python3 port/tools/fetch_game.py
+
+      - name: Verify the game data
+        run: |
+          set -euo pipefail
+          test -f vendor/frickbears3-game/data.win || {
+            echo "::error::data.win is missing - the game data could not be fetched"
+            exit 1
+          }
+          du -sh vendor/frickbears3-game
+          ls vendor/frickbears3-game | head -20
+
+      - name: Package the game into the app assets
+        run: |
+          set -euo pipefail
+          python3 port/scripts/package_game.py \
+            vendor/frickbears3-game \
+            vendor/Butterscotch/src/android/frontend/app/src/main/assets
+          ls -la vendor/Butterscotch/src/android/frontend/app/src/main/assets/game/
+
       - name: Apply FrickBears 3 port patches
         run: |
           set -euo pipefail
           python3 port/scripts/apply_port.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
           python3 port/scripts/apply_game_screen.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 port/scripts/apply_trim.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
 
       # The release build needs a signing config, otherwise Gradle emits an
       # unsigned APK that cannot be installed. A throwaway key is generated
