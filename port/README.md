@@ -98,8 +98,8 @@ you pushed a `V*` tag.
 git clone --depth 1 https://github.com/ButterscotchRunner/Butterscotch.git vendor/Butterscotch
 
 # 2. Apply the port patches
-python3 scripts/apply_port.py vendor/Butterscotch
-python3 scripts/apply_game_screen.py vendor/Butterscotch
+python3 port/scripts/apply_port.py vendor/Butterscotch
+python3 port/scripts/apply_game_screen.py vendor/Butterscotch
 
 # 3. Build
 cd vendor/Butterscotch/src/android/frontend
@@ -139,7 +139,7 @@ community character mods on itch.io bundle the full base game:
 
 ```bash
 # Downloads a mirror that contains the full data.win and unpacks it
-python3 tools/fetch_game.py
+python3 port/tools/fetch_game.py
 ```
 
 This writes to `vendor/frickbears3-game/`. It is a convenience only — the
@@ -170,9 +170,9 @@ canonical source is Game Jolt.
 `data.win`, which is a GameMaker "FORM" container:
 
 ```bash
-python3 tools/dump_strg.py path/to/data.win       # dump the string table
-python3 tools/find_controls.py path/to/data.win   # find the control definitions
-python3 tools/list_rooms.py path/to/data.win      # list the game's rooms
+python3 port/tools/dump_strg.py path/to/data.win       # dump the string table
+python3 port/tools/find_controls.py path/to/data.win   # find the control definitions
+python3 port/tools/list_rooms.py path/to/data.win      # list the game's rooms
 ```
 
 ---

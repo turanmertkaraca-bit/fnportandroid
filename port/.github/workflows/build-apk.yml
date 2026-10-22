@@ -59,8 +59,8 @@ jobs:
 
       - name: Apply FrickBears 3 port patches
         run: |
-          python3 scripts/apply_port.py vendor/Butterscotch
-          python3 scripts/apply_game_screen.py vendor/Butterscotch
+          python3 port/scripts/apply_port.py vendor/Butterscotch
+          python3 port/scripts/apply_game_screen.py vendor/Butterscotch
 
       - name: Build debug + release APK
         working-directory: vendor/Butterscotch/src/android/frontend
