@@ -24,11 +24,16 @@ overlay** on top.
 | Game engine | GameMaker: Studio 2.3 (WAD v17), bytecode |
 | Runtime | [Butterscotch](https://github.com/ButterscotchRunner/Butterscotch) (AGPL-3.0) |
 | Port layer | A Kotlin touch overlay + a small native room-query accessor |
-| Game data | The original `data.win`, texture groups and audio groups, untouched |
+| Game data | The original `data.win`, texture groups and audio groups, bundled in the APK and untouched |
 
 The port does **not** modify the game. The original `data.win` is loaded as-is,
 so every mechanic, sound, minigame and ending behaves exactly as SpookyRick
-shipped it. The port only adds an input layer.
+shipped it. The port only adds an input layer — and strips everything that
+does not belong on a phone: the game list, the import screen, the Play
+Services update flow and the ad id.
+
+**Install the APK and it opens the game.** There is no import step, no
+library to pick through and no launcher.
 
 ---
 
@@ -143,37 +148,40 @@ cat build-logs/gradle.log
 
 ---
 
-## Getting the game onto your phone
+## The game is inside the APK
 
-The APK is just the runner — the game files are **not** redistributed here,
-because they belong to SpookyRick. Get *Five Nights at Frickbear's 3* v1.1.4
-from [Game Jolt](https://gamejolt.com/games/frickbears3/930477) and unpack it
-so you have a folder containing:
+**There is nothing to import.** The release APK contains the whole game:
+`data.win`, all seven audio groups and all 142 texture files, packed into
+`assets/game/frickbears3.zip`.
+
+On first launch the app extracts that archive into its private storage,
+registers the game, and opens it. From then on it goes straight to the title
+screen of *Five Nights at Frickbear's 3*.
+
+That is why the APK is ~210 MB: the game's audio alone is 159 MB, and it is
+already compressed so there is nothing to squeeze out of it. The smaller
+`app-debug.apk` has the same content.
+
+The game data is **not** committed to this repository — it belongs to
+SpookyRick and is distributed on
+[Game Jolt](https://gamejolt.com/games/frickbears3/930477). The CI fetches
+it from a public mirror (see `port/tools/fetch_game.py`) and bundles it into
+the APK it builds. If you would rather build from your own copy, drop the
+unpacked game into `vendor/frickbears3-game/` and the CI will use it instead.
+
+### Where the files come from
 
 ```
-data.win
-audiogroup1.dat ... audiogroup7.dat
-texgroup_buildingtextures/*.yytex
-texgroup_conceptart/*.yytex
-...
-leveldata1.txt ... leveldata5.txt
-options.ini
+vendor/frickbears3-game/
+├── data.win                 the compiled game
+├── audiogroup1..7.dat       the audio (159 MB)
+├── texgroup_*/              the textures (37 MB)
+├── leveldata1..5.txt        the salvage maze layouts
+└── options.ini
 ```
 
-Then in the app: **Import** → pick that folder → the game shows up in your
-library → launch it. The Butterscotch importer recognises `data.win` (and
-also `game.unx` / `game.droid` if you have a different export).
-
-If you want the files without going through Game Jolt's download flow, a few
-community character mods on itch.io bundle the full base game:
-
-```bash
-# Downloads a mirror that contains the full data.win and unpacks it
-python3 port/tools/fetch_game.py
-```
-
-This writes to `vendor/frickbears3-game/`. It is a convenience only — the
-canonical source is Game Jolt.
+The Windows `Frickbears3.exe` and the Discord/Discord-NekoPresence DLLs are
+deliberately left out — the Android runner does not use them.
 
 ---
 
