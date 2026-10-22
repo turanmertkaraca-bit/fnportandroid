@@ -188,22 +188,21 @@ jobs:
         run: |
           set -uo pipefail
           rm -rf logs-repo
-          git clone --depth 1 --branch "$LOGS_BRANCH" \
-            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-repo && \
-          echo "cloned existing logs branch" || \
-          { git clone --depth 1 --branch main \
-              "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-repo && \
-            cd logs-repo && git checkout --orphan "$LOGS_BRANCH" && git rm -r --cached . -q; }
-
+          # Start from the current main so the branch has a sane base, then
+          # keep only the logs.
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-repo
           cd logs-repo
+          git checkout -B "$LOGS_BRANCH"
+          git rm -r --cached . -q || true
+          find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
           mkdir -p build-logs
           cp "$GITHUB_WORKSPACE/dist-logs/"*.log build-logs/ 2>/dev/null || \
             echo "no logs captured" > build-logs/gradle.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A build-logs
-          git commit -m "build logs: ${GITHUB_RUN_ID}" || echo "nothing to commit"
-          git push origin HEAD:refs/heads/"$LOGS_BRANCH" || echo "could not push logs"
+          git add -A
+          git commit -m "build logs: ${GITHUB_RUN_ID}"
+          git push --force origin "HEAD:refs/heads/$LOGS_BRANCH"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
