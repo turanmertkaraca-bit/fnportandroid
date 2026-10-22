@@ -168,8 +168,12 @@ private fun Fb3TouchButton(
     var pressed by remember { mutableStateOf(false) }
     val density = LocalDensity.current
 
+    // Modifier.offset works in Dp, while the layout maths above is in pixels.
     val topLeft = with(density) {
-        Offset((spec.center.x - spec.size.toPx() / 2f), (spec.center.y - spec.size.toPx() / 2f))
+        Offset(
+            (spec.center.x - spec.size.toPx() / 2f).toDp(),
+            (spec.center.y - spec.size.toPx() / 2f).toDp(),
+        )
     }
 
     Box(
