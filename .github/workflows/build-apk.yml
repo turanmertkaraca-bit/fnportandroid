@@ -177,6 +177,25 @@ jobs:
           path: dist-logs/
           if-no-files-found: ignore
 
+      - name: Publish the logs to a branch
+        # The artifacts are only downloadable by signed-in users, which makes
+        # them awkward to read from a bot or a CI-less machine. Pushing the
+        # log to a branch keeps it fetchable with plain `git`.
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: logs-repo
+        run: |
+          cd logs-repo
+          mkdir -p build-logs
+          cp ../dist-logs/gradle.log build-logs/gradle.log 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A build-logs
+          git commit -m "build logs: ${GITHUB_RUN_ID}" || echo "nothing to commit"
+          git push origin HEAD:refs/heads/build-logs || echo "could not push logs"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
