@@ -16,8 +16,12 @@ permissions:
 
 env:
   ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-  NDK_VERSION: 27.0.12077973
-  NDK_DIR: android-ndk-r27
+  # AGP 9.2.1 pins the NDK to 28.2.13676358. Installing a different one makes
+  # AGP try to download its own at build time, which fails on the licence
+  # prompt, so the exact version is fetched here.
+  NDK_VERSION: 28.2.13676358
+  NDK_DIR: android-ndk-r28c
+  NDK_URL: https://dl.google.com/android/repository/android-ndk-r28c-linux.zip
 
 jobs:
   build:
@@ -71,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           SDK_ROOT="$ANDROID_SDK_ROOT"
-          URL="https://dl.google.com/android/repository/android-ndk-r27-linux.zip"
+          URL="$NDK_URL"
           ZIP=/tmp/android-ndk.zip
 
           for attempt in 1 2 3 4 5 6; do
@@ -140,7 +144,7 @@ jobs:
       - name: Build debug + release APK
         working-directory: vendor/Butterscotch/src/android/frontend
         env:
-          ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/27.0.12077973
+          ANDROID_NDK_HOME: ${{ github.workspace }}/android-sdk/ndk/28.2.13676358
         run: |
           set -uo pipefail
           ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace \
