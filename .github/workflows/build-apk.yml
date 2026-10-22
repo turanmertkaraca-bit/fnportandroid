@@ -110,7 +110,7 @@ jobs:
       - name: Install the remaining SDK packages
         run: |
           set -euo pipefail
-          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1"
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;35.0.0" "cmake;3.22.1" 2>&1 | tee /tmp/sdkmanager.log
           {
             echo "### Installed SDK packages"
             sdkmanager --list_installed
@@ -167,6 +167,7 @@ jobs:
         run: |
           mkdir -p dist-logs
           cp /tmp/gradle.log dist-logs/gradle.log 2>/dev/null || echo "no gradle log captured" > dist-logs/gradle.log
+          cp /tmp/sdkmanager.log dist-logs/sdkmanager.log 2>/dev/null || echo "no sdkmanager log captured" > dist-logs/sdkmanager.log
           ls -la dist-logs
 
       - name: Upload build logs artifact
@@ -182,14 +183,15 @@ jobs:
         # them awkward to read from a bot or a CI-less machine. Pushing the
         # log to a branch keeps it fetchable with plain `git`.
         if: always()
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          path: logs-repo
         run: |
+          set -euo pipefail
+          rm -rf logs-repo
+          git clone --depth 1 --branch main \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-repo
           cd logs-repo
           mkdir -p build-logs
-          cp ../dist-logs/gradle.log build-logs/gradle.log 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/dist-logs/"*.log build-logs/ 2>/dev/null || \
+            echo "no logs captured" > build-logs/gradle.log
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A build-logs
