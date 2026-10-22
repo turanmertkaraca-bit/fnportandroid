@@ -2,6 +2,7 @@ package net.perfectdreams.butterscotch.android.frickbears3
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,11 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
@@ -61,42 +62,44 @@ fun FrickBears3TouchOverlay(
     if (!enabled) return
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val width = maxWidth
-        val height = maxHeight
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }
+        val heightPx = with(density) { maxHeight.toPx() }
 
         // Button size is a fraction of the shorter edge so it never gets
         // unusably small on a narrow phone nor comically large on a tablet.
-        val buttonSize = minOf(width, height) * 0.17f
-        val bottomInset = height * 0.06f
-        val sideInset = width * 0.05f
+        val buttonSizePx = minOf(widthPx, heightPx) * 0.17f
+        val buttonSize = with(density) { buttonSizePx.toDp() }
+        val bottomInsetPx = heightPx * 0.06f
+        val sideInsetPx = widthPx * 0.05f
 
         // Left hand: light + doors. Right hand: monitor.
         val lightButton = Fb3ButtonSpec(
             label = "LIGHT",
             subLabel = "S",
-            center = Offset(sideInset + buttonSize / 2f, height - bottomInset - buttonSize / 2f),
+            center = Offset(sideInsetPx + buttonSizePx / 2f, heightPx - bottomInsetPx - buttonSizePx / 2f),
             size = buttonSize,
             vk = Fb3Keys.VK_FLASHLIGHT,
         )
         val leftDoorButton = Fb3ButtonSpec(
             label = "L.DOOR",
             subLabel = "A",
-            center = Offset(sideInset + buttonSize * 1.5f, height - bottomInset - buttonSize / 2f),
+            center = Offset(sideInsetPx + buttonSizePx * 1.5f, heightPx - bottomInsetPx - buttonSizePx / 2f),
             size = buttonSize,
             vk = Fb3Keys.VK_LEFT_DOOR,
         )
         val rightDoorButton = Fb3ButtonSpec(
             label = "R.DOOR",
             subLabel = "D",
-            center = Offset(sideInset + buttonSize * 2.5f, height - bottomInset - buttonSize / 2f),
+            center = Offset(sideInsetPx + buttonSizePx * 2.5f, heightPx - bottomInsetPx - buttonSizePx / 2f),
             size = buttonSize,
             vk = Fb3Keys.VK_RIGHT_DOOR,
         )
         val monitorButton = Fb3ButtonSpec(
             label = "MONITOR",
             subLabel = "W",
-            center = Offset(width - sideInset - buttonSize / 2f, height - bottomInset - buttonSize / 2f),
-            size = buttonSize * 1.15f,
+            center = Offset(widthPx - sideInsetPx - buttonSizePx / 2f, heightPx - bottomInsetPx - buttonSizePx / 2f),
+            size = with(density) { (buttonSizePx * 1.15f).toDp() },
             vk = Fb3Keys.VK_MONITOR,
         )
 
@@ -163,16 +166,21 @@ private fun Fb3TouchButton(
     onReleased: () -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+
+    val topLeft = with(density) {
+        Offset((spec.center.x - spec.size.toPx() / 2f), (spec.center.y - spec.size.toPx() / 2f))
+    }
 
     Box(
         Modifier
-            .offset(x = spec.center.x - spec.size / 2f, y = spec.center.y - spec.size / 2f)
+            .offset(x = topLeft.x, y = topLeft.y)
             .size(spec.size)
             .clip(CircleShape)
             .background(if (pressed) Color(0xFF3A4A66) else Color(0xCC1A1D24))
             .pointerInput(spec) {
                 awaitEachGesture {
-                    val down: PointerInputChange = awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false)
                     pressed = true
                     onPressed()
                     down.consume()
