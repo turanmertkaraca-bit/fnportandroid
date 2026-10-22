@@ -1,5 +1,7 @@
 # FrickBears 3 — Android Port
 
+[![Build APK](https://github.com/turanmertkaraca-bit/fnportandroid/actions/workflows/build-apk.yml/badge.svg)](https://github.com/turanmertkaraca-bit/fnportandroid/actions/workflows/build-apk.yml)
+
 Unofficial Android port of **Five Nights at Frickbear's 3** by
 [SpookyRick](https://gamejolt.com/@SpookyRick), built on
 [Butterscotch](https://github.com/ButterscotchRunner/Butterscotch) — an
@@ -88,8 +90,14 @@ enough:
 git push origin main
 ```
 
-Then grab the APK from the **Actions** tab, or from the **Releases** page if
-you pushed a `V*` tag.
+Then grab the APK from the **Actions** tab (the `frickbears3-android-apk`
+artifact), or from the **Releases** page if you pushed a `V*` tag.
+
+The build produces two APKs:
+
+- `app-debug.apk` — debug build, always signed with the debug key.
+- `app-release.apk` — release build, signed with a throwaway key generated
+  per CI run. Swap in a real keystore before publishing.
 
 ### Building locally instead
 
@@ -108,8 +116,30 @@ cd vendor/Butterscotch/src/android/frontend
 # The APK lands in app/build/outputs/apk/release/
 ```
 
-Requirements: JDK 17, Android SDK with platform 36, build-tools 35.0.0,
-NDK 27.0.12077973 and CMake 3.22.1.
+Requirements — these are the exact versions AGP 9.2.1 asks for, and installing
+different ones makes the build fail with a confusing licence error:
+
+| | |
+| --- | --- |
+| JDK | 17 |
+| Android platform | `android-36` **and** `android-36.1` |
+| Build tools | `35.0.0` **and** `36.0.0` |
+| NDK | `28.2.13676358` |
+| CMake | `3.22.1` |
+
+The NDK is a ~660 MB archive that `sdkmanager` frequently truncates, so the
+CI downloads it with a resumable `curl` and unpacks it by hand.
+
+### Debugging a failed build
+
+Every run publishes its logs to the `build-logs` branch, so a failure can be
+read without signing in to GitHub:
+
+```bash
+git clone --branch build-logs --depth 1 \
+  https://github.com/turanmertkaraca-bit/fnportandroid.git
+cat build-logs/gradle.log
+```
 
 ---
 
@@ -151,17 +181,18 @@ canonical source is Game Jolt.
 
 ```
 .
-├── app/                          the Kotlin touch overlay
-│   ├── FrickBears3TouchOverlay.kt    the on-screen buttons
-│   ├── Fb3Keys.kt                    default key bindings + overlay visibility policy
-│   └── Fb3CameraSwipe.kt             swipe-to-change-camera
-├── layouts/                      the FB3 touch layout (Butterscotch layout JSON)
-├── scripts/
-│   ├── apply_port.py             applies the port patches to a Butterscotch checkout
-│   └── apply_game_screen.py      wires the overlay into the game screen
-├── docs/controls.md              the control design rationale
-├── .github/workflows/            the APK build
-└── tools/                        helpers for inspecting the game's data.win
+├── .github/workflows/build-apk.yml   the APK build
+└── port/
+    ├── app/                          the Kotlin touch overlay
+    │   ├── FrickBears3TouchOverlay.kt    the on-screen buttons
+    │   ├── Fb3Keys.kt                    default key bindings + overlay visibility policy
+    │   └── Fb3CameraSwipe.kt             swipe-to-change-camera
+    ├── layouts/                      the FB3 touch layout (Butterscotch layout JSON)
+    ├── scripts/
+    │   ├── apply_port.py             applies the port patches to a Butterscotch checkout
+    │   └── apply_game_screen.py      wires the overlay into the game screen
+    ├── docs/controls.md              the control design rationale
+    └── tools/                        helpers for inspecting the game's data.win
 ```
 
 ### Tools
