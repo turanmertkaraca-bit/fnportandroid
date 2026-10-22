@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Download the Frickbears 3 base game from an itch.io mirror and extract it.
+"""Fetch the FrickBears 3 game data.
 
-The full game (data.win + Frickbears3.exe) is bundled with several community
-character mods on itch.io. This script fetches one of those bundles so the
-Android port has the real game assets to work with.
+The game itself is not redistributed in this repository - it belongs to
+SpookyRick and is distributed on Game Jolt:
+https://gamejolt.com/games/frickbears3/930477
+
+This helper pulls the game from a public mirror so the CI can bundle it into
+the APK. Several community character mods on itch.io ship the complete base
+game alongside the mod, so those are used as the mirror. Each one is tried in
+turn until one yields a data.win.
+
+Usage:  python3 fetch_game.py [output-dir]
 """
 import io
 import json
@@ -13,60 +20,102 @@ import subprocess
 import sys
 import zipfile
 
-# itch.io pages that bundle the full Frickbears 3 game.
+# Mirrors that bundle the complete FrickBears 3 game (data.win + assets).
+# Each entry is (page url, upload id).
 SOURCES = [
     ("https://jvbb.itch.io/frickbears-3-hoshimi-miyabi-guard", "17640228"),
     ("https://benimismimnikaso.itch.io/frickbears-3-rem-kl-mod", "18045982"),
+    ("https://whitefox-fcp.itch.io/fb3playerguymod", "19089593"),
 ]
-OUT = "vendor/frickbears3-game"
+
+DEFAULT_OUT = "vendor/frickbears3-game"
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
-def fetch(url, cookies=None):
-    cmd = ["curl", "-sL", "--max-time", "300", "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64)"]
+def fetch(url, cookies=None, timeout=180):
+    cmd = ["curl", "-sL", "--max-time", str(timeout), "-H", f"User-Agent: {UA}"]
     if cookies:
         cmd += ["-b", cookies, "-c", cookies]
     cmd.append(url)
-    return subprocess.run(cmd, capture_output=True).stdout
+    result = subprocess.run(cmd, capture_output=True)
+    return result.stdout
+
+
+def try_source(page, upload_id, out_dir):
+    """Try to download the full game from one mirror. Returns True on success."""
+    jar = f"/tmp/itch_jar_{abs(hash(page))}.txt"
+
+    html = fetch(page, cookies=jar).decode("utf-8", "replace")
+    if not html:
+        print(f"  ! {page}: no response")
+        return False
+
+    csrf_match = re.search(r'csrf_token" value="([^"]+)"', html)
+    if not csrf_match:
+        print(f"  ! {page}: no csrf token (page may have changed)")
+        return False
+    csrf = csrf_match.group(1)
+
+    # The signed download URL is handed out by a POST to the file endpoint.
+    cmd = [
+        "curl", "-s", "--max-time", "120",
+        "-b", jar, "-c", jar,
+        "-X", "POST", f"{page}/file/{upload_id}",
+        "-H", f"Referer: {page}",
+        "-H", f"X-CSRFToken: {csrf}",
+        "-H", f"User-Agent: {UA}",
+    ]
+    raw = subprocess.run(cmd, capture_output=True).stdout
+    try:
+        url = json.loads(raw)["url"]
+    except Exception:
+        print(f"  ! {page}: no signed url")
+        return False
+
+    blob = fetch(url, timeout=600)
+    if not blob:
+        print(f"  ! {page}: empty download")
+        return False
+
+    try:
+        z = zipfile.ZipFile(io.BytesIO(blob))
+    except zipfile.BadZipFile:
+        print(f"  ! {page}: not a zip")
+        return False
+
+    names = z.namelist()
+    if not any("data.win" in n for n in names):
+        print(f"  ! {page}: no data.win in the archive")
+        return False
+
+    os.makedirs(out_dir, exist_ok=True)
+    z.extractall(out_dir)
+    print(f"  + extracted {len(names)} entries to {out_dir}")
+    return True
 
 
 def main():
-    jar = "/tmp/itch_jar.txt"
-    os.makedirs(OUT, exist_ok=True)
-    for page, uid in SOURCES:
-        html = fetch(page, cookies=jar).decode("utf8", "replace")
-        m = re.search(r'csrf_token" value="([^"]+)"', html)
-        if not m:
-            print(f"no csrf for {page}")
-            continue
-        cmd = [
-            "curl", "-s", "--max-time", "120",
-            "-b", jar, "-c", jar,
-            "-X", "POST", f"{page}/file/{uid}",
-            "-H", f"Referer: {page}",
-            "-H", f"X-CSRFToken: {m.group(1)}",
-            "-H", "User-Agent: Mozilla/5.0",
-        ]
-        out = subprocess.run(cmd, capture_output=True).stdout
-        try:
-            url = json.loads(out)["url"]
-        except Exception:
-            print(f"no signed url for {page}")
-            continue
-        blob = fetch(url)
-        print(f"{page}: downloaded {len(blob)} bytes")
-        try:
-            z = zipfile.ZipFile(io.BytesIO(blob))
-        except zipfile.BadZipFile:
-            print("  not a zip, skipping")
-            continue
-        names = z.namelist()
-        if not any("data.win" in n for n in names):
-            print("  no data.win, skipping")
-            continue
-        z.extractall(OUT)
-        print(f"  extracted {len(names)} entries to {OUT}")
+    out_dir = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_OUT
+
+    # Already have it? Nothing to do.
+    if os.path.exists(os.path.join(out_dir, "data.win")):
+        print(f"game data already present in {out_dir}")
         return 0
-    print("FAILED: no source contained data.win")
+
+    for page, upload_id in SOURCES:
+        print(f"trying {page}")
+        try:
+            if try_source(page, upload_id, out_dir):
+                print(f"done: {out_dir}")
+                return 0
+        except Exception as e:
+            print(f"  ! {page}: {e}")
+
+    print()
+    print("FAILED: could not fetch the game data from any mirror.")
+    print("Get it from Game Jolt instead:")
+    print("  https://gamejolt.com/games/frickbears3/930477")
+    print(f"and unpack it into {out_dir}/")
     return 1
 
 

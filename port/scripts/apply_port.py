@@ -137,7 +137,13 @@ JNIEXPORT jstring JNICALL JNI_FN(getCurrentRoomName)(MAYBE_UNUSED JNIEnv* env, M
         root,
         "src/android/frontend/app/src/main/kotlin/net/perfectdreams/butterscotch/android/frickbears3",
     )
-    for name in ("FrickBears3TouchOverlay.kt", "Fb3Keys.kt", "Fb3CameraSwipe.kt"):
+    for name in (
+        "FrickBears3TouchOverlay.kt",
+        "Fb3Keys.kt",
+        "Fb3CameraSwipe.kt",
+        "BundledGame.kt",
+        "FrickBears3Launcher.kt",
+    ):
         results.append((f"frickbears3/{name}",) + copy_file(
             os.path.join(port_dir, "app", name),
             os.path.join(kt_dir, name),
