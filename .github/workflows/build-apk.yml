@@ -151,6 +151,22 @@ jobs:
           python3 port/scripts/apply_port.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
           python3 port/scripts/apply_game_screen.py vendor/Butterscotch | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # The release build needs a signing config, otherwise Gradle emits an
+      # unsigned APK that cannot be installed. A throwaway key is generated
+      # per run; swap in a real keystore for a published release.
+      - name: Generate a signing key
+        run: |
+          set -euo pipefail
+          FRONTEND="$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend"
+          keytool -genkeypair -v \
+            -keystore "$FRONTEND/release.keystore" \
+            -storepass android -keypass android \
+            -alias release -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=FrickBears3 Port, OU=Port, O=Community, L=NA, S=NA, C=NA"
+          printf 'storeFile=%s\nstorePassword=android\nkeyAlias=release\nkeyPassword=android\n' \
+            "$FRONTEND/release.keystore" > "$FRONTEND/keystore.properties"
+          echo "keystore written to $FRONTEND/keystore.properties"
+
       - name: Build debug + release APK
         working-directory: vendor/Butterscotch/src/android/frontend
         env:
@@ -182,11 +198,20 @@ jobs:
 
       - name: Collect APKs
         run: |
+          set -uo pipefail
           mkdir -p dist
-          find vendor/Butterscotch/src/android/frontend/app/build/outputs/apk \
-            -name "*.apk" -exec cp {} dist/ \;
-          ls -lh dist/
-          ls -lh dist/ >> "$GITHUB_STEP_SUMMARY"
+          # The APK lands under the app module's outputs directory. The glob
+          # is intentionally wide: debug and release builds use different
+          # names, and a release build without a signing config is emitted
+          # with an "-unsigned" suffix.
+          find "$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend/app/build/outputs" \
+            -type f -name "*.apk" -exec cp {} dist/ \; || true
+          echo "--- apks found ---"
+          ls -la dist/ || true
+          echo "--- all apk files under build/outputs ---"
+          find "$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend/app/build/outputs" \
+            -type f -name "*.apk" -exec ls -la {} \; || true
+          ls -lh dist/ >> "$GITHUB_STEP_SUMMARY" || true
 
       # Always ship the logs, even on failure, so a broken build can be
       # diagnosed from the artifacts without re-running it.
