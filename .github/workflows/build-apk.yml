@@ -198,13 +198,19 @@ jobs:
         run: |
           set -uo pipefail
           cd "$GITHUB_WORKSPACE"
+          # Stash the logs somewhere that survives the checkout dance below.
+          rm -rf /tmp/publish-logs
+          mkdir -p /tmp/publish-logs
+          cp dist-logs/*.log /tmp/publish-logs/ 2>/dev/null || \
+            echo "no logs captured" > /tmp/publish-logs/gradle.log
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$LOGS_BRANCH"
           git rm -r --cached . -q || true
           find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
           mkdir -p build-logs
-          cp dist-logs/*.log build-logs/ 2>/dev/null || echo "no logs captured" > build-logs/gradle.log
+          cp /tmp/publish-logs/*.log build-logs/
           git add -A
           git commit -m "build logs: ${GITHUB_RUN_ID}"
           git push --force origin "HEAD:refs/heads/$LOGS_BRANCH"
