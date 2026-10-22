@@ -204,14 +204,19 @@ jobs:
           # is intentionally wide: debug and release builds use different
           # names, and a release build without a signing config is emitted
           # with an "-unsigned" suffix.
-          find "$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend/app/build/outputs" \
-            -type f -name "*.apk" -exec cp {} dist/ \; || true
-          echo "--- apks found ---"
+          OUT="$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend/app/build/outputs"
+          echo "--- looking for APKs under $OUT ---"
+          find "$OUT" -type f -name "*.apk" -exec cp {} dist/ \; 2>/dev/null || true
+          echo "--- listing every file under the outputs tree ---"
+          find "$OUT" -type f 2>/dev/null | head -50 || true
+          echo "--- dist/ ---"
           ls -la dist/ || true
-          echo "--- all apk files under build/outputs ---"
-          find "$GITHUB_WORKSPACE/vendor/Butterscotch/src/android/frontend/app/build/outputs" \
-            -type f -name "*.apk" -exec ls -la {} \; || true
-          ls -lh dist/ >> "$GITHUB_STEP_SUMMARY" || true
+          {
+            echo "### APKs"
+            ls -lh dist/ || true
+            echo "### outputs tree"
+            find "$OUT" -type f 2>/dev/null | head -50 || true
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Always ship the logs, even on failure, so a broken build can be
       # diagnosed from the artifacts without re-running it.
@@ -235,25 +240,25 @@ jobs:
         # The artifacts are only downloadable by signed-in users, which makes
         # them awkward to read from a bot or a CI-less machine. Pushing the
         # log to a branch keeps it fetchable with plain `git`.
+        #
+        # This runs in its own clone so it cannot disturb the working tree
+        # (in particular the dist/ folder with the built APKs).
         if: always()
         env:
           LOGS_BRANCH: build-logs
         run: |
           set -uo pipefail
-          cd "$GITHUB_WORKSPACE"
-          # Stash the logs somewhere that survives the checkout dance below.
-          rm -rf /tmp/publish-logs
-          mkdir -p /tmp/publish-logs
-          cp dist-logs/*.log /tmp/publish-logs/ 2>/dev/null || \
-            echo "no logs captured" > /tmp/publish-logs/gradle.log
-
+          rm -rf /tmp/logs-repo
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/logs-repo
+          cd /tmp/logs-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "$LOGS_BRANCH"
           git rm -r --cached . -q || true
           find . -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
           mkdir -p build-logs
-          cp /tmp/publish-logs/*.log build-logs/
+          cp "$GITHUB_WORKSPACE/dist-logs/"*.log build-logs/ 2>/dev/null || \
+            echo "no logs captured" > build-logs/gradle.log
           git add -A
           git commit -m "build logs: ${GITHUB_RUN_ID}"
           git push --force origin "HEAD:refs/heads/$LOGS_BRANCH"
