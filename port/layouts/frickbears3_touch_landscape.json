@@ -1,0 +1,51 @@
+{
+    "id": "a1f4c2d8-3b7e-4c91-8f26-5d0e7b3a9c14",
+    "fancyName": "FrickBears 3 - Touch Controls",
+    "orientation": "LANDSCAPE",
+    "elements": [
+        {
+            "type": "Key",
+            "id": "c1a2b3d4-0001-4000-8000-000000000001",
+            "positionX": 0.075,
+            "positionY": 0.78,
+            "scale": 0.26,
+            "opacity": 1.0,
+            "label": "L. DOOR",
+            "trigger": { "type": "Press" },
+            "binding": { "type": "Keyboard", "vk": 65 }
+        },
+        {
+            "type": "Key",
+            "id": "c1a2b3d4-0001-4000-8000-000000000002",
+            "positionX": 0.245,
+            "positionY": 0.78,
+            "scale": 0.26,
+            "opacity": 1.0,
+            "label": "R. DOOR",
+            "trigger": { "type": "Press" },
+            "binding": { "type": "Keyboard", "vk": 68 }
+        },
+        {
+            "type": "Key",
+            "id": "c1a2b3d4-0001-4000-8000-000000000003",
+            "positionX": 0.415,
+            "positionY": 0.78,
+            "scale": 0.26,
+            "opacity": 1.0,
+            "label": "LIGHT",
+            "trigger": { "type": "Press" },
+            "binding": { "type": "Keyboard", "vk": 83 }
+        },
+        {
+            "type": "Key",
+            "id": "c1a2b3d4-0001-4000-8000-000000000004",
+            "positionX": 0.86,
+            "positionY": 0.78,
+            "scale": 0.3,
+            "opacity": 1.0,
+            "label": "MONITOR",
+            "trigger": { "type": "Press" },
+            "binding": { "type": "Keyboard", "vk": 87 }
+        }
+    ]
+}
