@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# The game data is fetched by the CI, not committed.
+vendor/
